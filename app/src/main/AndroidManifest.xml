@@ -23,6 +23,16 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.1V1">
+
+        <meta-data
+            android:name="io.sentry.dsn"
+            android:value="https://2e59c1a51f0f442c9cc6aab77bcfe9db@o1145225.ingest.sentry.io/6212340" />
+        <!-- Set tracesSampleRate to 1.0 to capture 100% of transactions for performance monitoring.
+           We recommend adjusting this value in production. -->
+        <meta-data
+            android:name="io.sentry.traces.sample-rate"
+            android:value="1.0" />
+
         <activity
             android:name=".Activities.MainActivity"
             android:exported="true">

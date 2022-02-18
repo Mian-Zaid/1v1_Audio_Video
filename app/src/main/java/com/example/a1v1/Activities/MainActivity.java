@@ -11,6 +11,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.Toast;
 
 import com.example.a1v1.HelperClasses.NTSTokenAsyncTask;
 import com.example.a1v1.HelperClasses.WebRTCEngine;
@@ -25,6 +26,7 @@ import org.webrtc.PeerConnection;
 import java.util.LinkedList;
 import java.util.List;
 
+import io.sentry.Sentry;
 import pub.devrel.easypermissions.AfterPermissionGranted;
 import pub.devrel.easypermissions.AppSettingsDialog;
 import pub.devrel.easypermissions.EasyPermissions;
@@ -117,6 +119,8 @@ public class MainActivity extends AppCompatActivity implements
 
 
     private void joinRoom() {
+        Toast.makeText(context, "Joining", Toast.LENGTH_SHORT).show();
+        Log.d(TAG, "joinRoom: Joining");
         databaseReference = webRTCEngine.getDatabaseReference("rooms");
         webRTCEngine.postListenerForRoomDevices(databaseReference);
         switchUI(true);
