@@ -67,6 +67,10 @@ public class PeerClass implements SdpObserver, PeerConnection.Observer {
     private IceCandidateCallback iceCandidateCallback;
     Activity activity;
 
+    SurfaceViewRenderer renderer;
+    ProxyVideoSink sink;
+
+
     private String deviceId;
     private String peerId;
     private boolean isOffer;
@@ -114,7 +118,7 @@ public class PeerClass implements SdpObserver, PeerConnection.Observer {
     public PeerClass(Context context, String deviceId, String id, List<PeerConnection.IceServer> iceServers, PeerConnectionFactory factory,
                      String s,
                      IceConnectionEventsCallback iceConnectionEventsCallback, IPeerConnectionCallback iPeerConnectionCallback, EglBase eglBase,
-                     Activity activity) {
+                     Activity activity, IVideoCallback iVideoCallback) {
         this.context = context;
         this.deviceId = deviceId;
         this.peerId = id;
@@ -125,6 +129,7 @@ public class PeerClass implements SdpObserver, PeerConnection.Observer {
         this.iceConnectionEventsCallback = iceConnectionEventsCallback;
         this.iPeerConnectionCallback = iPeerConnectionCallback;
         this.activity = activity;
+        this.iVideoCallback = iVideoCallback;
         Log.d(TAG, "PeerClass: Constr");
     }
 
@@ -191,9 +196,10 @@ public class PeerClass implements SdpObserver, PeerConnection.Observer {
 
     //[Logs listeners call by UI layer]
     public void setOnSendLogsListener(SessionDescriptionCallback sessionDescriptionCallback,
-                                      IceCandidateCallback iceCandidateCallback) {
+                                      IceCandidateCallback iceCandidateCallback, IVideoCallback iVideoCallback) {
         this.sessionDescriptionCallback = sessionDescriptionCallback;
         this.iceCandidateCallback = iceCandidateCallback;
+        this.iVideoCallback = iVideoCallback;
     }
 
 
@@ -330,6 +336,43 @@ public class PeerClass implements SdpObserver, PeerConnection.Observer {
         }
         Log.d(TAG, "onAddStream: remoteStream");
 
+        //on video stream
+
+        if (mediaStream.videoTracks.size() > 0) {
+            Log.d(TAG, "onAddStream: GotVideoStream");
+            activity.runOnUiThread(() -> playVideo(false, peerId, mediaStream));
+        }
+
+    }
+
+    private void playVideo(boolean isLocalVideo, String peerId, MediaStream mediaStream) {
+        View view = createRender(mediaStream);
+        iVideoCallback.getVideoView(isLocalVideo, view, deviceId);
+    }
+
+    private View createRender(MediaStream mediaStream) {
+        renderer = new SurfaceViewRenderer(context);
+        renderer.init(WebrtcUtils.mRootEglBase.getEglBaseContext(), new RendererCommon.RendererEvents() {
+            @Override
+            public void onFirstFrameRendered() {
+                Log.d(TAG, "createRender onFirstFrameRendered");
+
+            }
+
+            @Override
+            public void onFrameResolutionChanged(int videoWidth, int videoHeight, int rotation) {
+                Log.d(TAG, "createRender onFrameResolutionChanged");
+            }
+        });
+        renderer.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL);
+        renderer.setMirror(false);
+        renderer.setZOrderMediaOverlay(true);
+        sink = new ProxyVideoSink();
+        sink.setTarget(renderer);
+        if (mediaStream != null && mediaStream.videoTracks.size() > 0) {
+            mediaStream.videoTracks.get(0).addSink(sink);
+        }
+        return renderer;
     }
 
 

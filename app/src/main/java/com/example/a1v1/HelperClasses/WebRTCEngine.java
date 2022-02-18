@@ -6,10 +6,13 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.util.Log;
+import android.view.View;
 import android.widget.Toast;
 
+import com.example.a1v1.Interfaces.IDisplayVideoCallBack;
 import com.example.a1v1.Interfaces.IPeerConnectionCallback;
 
+import com.example.a1v1.Interfaces.IVideoCallback;
 import com.example.a1v1.Interfaces.IceCandidateCallback;
 import com.example.a1v1.Interfaces.IceConnectionEventsCallback;
 import com.example.a1v1.Interfaces.SessionDescriptionCallback;
@@ -23,6 +26,8 @@ import org.webrtc.AudioSource;
 import org.webrtc.AudioTrack;
 import org.webrtc.Camera1Enumerator;
 import org.webrtc.Camera2Enumerator;
+import org.webrtc.CameraEnumerator;
+import org.webrtc.CameraVideoCapturer;
 import org.webrtc.DefaultVideoDecoderFactory;
 import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.IceCandidate;
@@ -50,6 +55,7 @@ import static android.content.Context.MODE_APPEND;
 public class WebRTCEngine {
 
     private static final String TAG = "WebRTCEngine";
+    private static final String VIDEO_TRACK_ID = "VideoTrack";
     private static WebRTCEngine webRTCEngine;
     Activity activity;
     Context context;
@@ -68,6 +74,12 @@ public class WebRTCEngine {
     public PeerClass peerClass, peer;
     private PeerConnection peerConnection;
 
+    private VideoSource videoSource;
+    private VideoCapturer videoCapturer;
+    private SurfaceTextureHelper surfaceTextureHelper;
+    public VideoTrack localVideoTrackCamera = null;
+
+    private IDisplayVideoCallBack iDisplayVideoCallBack;
 
     //create singelton
     public static WebRTCEngine getInstance(Activity activity, Context context, List<PeerConnection.IceServer> iceServers) {
@@ -118,7 +130,66 @@ public class WebRTCEngine {
 
         createAndSendAudioTrack();
 
+        createAndSendVideoTrack();
 
+
+    }
+
+    private void createAndSendVideoTrack() {
+        Runnable videoRunnable = () -> {
+            surfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", WebrtcUtils.mRootEglBase.getEglBaseContext());
+
+            videoCapturer = createVideoCapture();
+            videoSource = factory.createVideoSource(videoCapturer.isScreencast());
+            videoCapturer.initialize(surfaceTextureHelper, context, videoSource.getCapturerObserver());
+            videoCapturer.startCapture(1920,
+                    1080,
+                    60);
+
+            localVideoTrackCamera = factory.createVideoTrack(VIDEO_TRACK_ID, videoSource);
+            localVideoTrackCamera.setEnabled(true);
+            localMediaStream.addTrack(localVideoTrackCamera);
+        };
+        this.activity.runOnUiThread(videoRunnable);
+    }
+
+    private VideoCapturer createVideoCapture() {
+        VideoCapturer videoCapturer;
+
+        if (Camera2Enumerator.isSupported(context)) {
+            videoCapturer = createCameraCapture(new Camera2Enumerator(context));
+        } else {
+            videoCapturer = createCameraCapture(new Camera1Enumerator(true));
+        }
+        return videoCapturer;
+    }
+
+    private VideoCapturer createCameraCapture(CameraEnumerator enumerator) {
+        final String[] deviceNames = enumerator.getDeviceNames();
+
+        // First, try to find front facing camera
+        for (String deviceName : deviceNames) {
+            if (enumerator.isFrontFacing(deviceName)) {
+                VideoCapturer videoCapturer = enumerator.createCapturer(deviceName, null);
+
+                if (videoCapturer != null) {
+                    return videoCapturer;
+                }
+            }
+        }
+
+        // Front facing camera not found, try something else
+        for (String deviceName : deviceNames) {
+            if (!enumerator.isFrontFacing(deviceName)) {
+                VideoCapturer videoCapturer = enumerator.createCapturer(deviceName, null);
+
+                if (videoCapturer != null) {
+                    return videoCapturer;
+                }
+            }
+        }
+
+        return null;
     }
 
     private String getUUid() {
@@ -149,6 +220,18 @@ public class WebRTCEngine {
 
 
     IceCandidateCallback iceCandidateCallback = iceCandidate -> {
+    };
+
+    IVideoCallback iVideoCallback = new IVideoCallback() {
+        @Override
+        public void getVideoView(boolean isLocalVideo, View view) {
+
+        }
+
+        @Override
+        public void getVideoView(boolean isLocalVideo, View view, String deviceId) {
+            iDisplayVideoCallBack.setDisplayVideo(isLocalVideo, deviceId, view);
+        }
     };
 
     SessionDescriptionCallback sessionDescriptionCallback = new SessionDescriptionCallback() {
@@ -289,10 +372,10 @@ public class WebRTCEngine {
                 //Create a peer class object of new member who joind the room
                 peer = new PeerClass(this.context, DEVICE_ID, id, iceServers, factory, DEVICE_ID + "_" + id,
                         iceConnectionEventsCallback, iPeerConnectionCallback, WebrtcUtils.mRootEglBase,
-                        activity);
+                        activity, iVideoCallback);
                 peer.setLocalStream(localMediaStream);
 
-                peer.setOnSendLogsListener(sessionDescriptionCallback, iceCandidateCallback);
+                peer.setOnSendLogsListener(sessionDescriptionCallback, iceCandidateCallback, iVideoCallback);
 
                 peerClassHashMap.put(DEVICE_ID + "_" + id, peer);// for offer to ans.
 
@@ -309,6 +392,27 @@ public class WebRTCEngine {
             dbRef = getDatabaseReference("rooms");
             String id = dbRef.push().getKey();
             dbRef.child(Build.MANUFACTURER + "_" + Build.DEVICE + "_" + id).setValue(DEVICE_ID);
+        }
+    }
+
+    public void setDisplayVideoCallback(IDisplayVideoCallBack iDisplayVideoCallBack) {
+        this.iDisplayVideoCallBack = iDisplayVideoCallBack;
+    }
+
+    public void toggleMic() {
+        if (localAudioTrack.enabled()) {
+            Log.d(TAG, "toggleMic: Mute Mic");
+            localAudioTrack.setEnabled(false);
+        } else {
+            Log.d(TAG, "toggleMic: Un-Mute Mic");
+            localAudioTrack.setEnabled(true);
+        }
+    }
+
+    public void toggleCamera() {
+        if (videoCapturer instanceof CameraVideoCapturer) {
+            CameraVideoCapturer cameraVideoCapturer = (CameraVideoCapturer) videoCapturer;
+            cameraVideoCapturer.switchCamera(null);
         }
     }
 }

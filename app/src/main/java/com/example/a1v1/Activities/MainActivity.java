@@ -2,6 +2,8 @@ package com.example.a1v1.Activities;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
@@ -10,11 +12,13 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import com.example.a1v1.HelperClasses.NTSTokenAsyncTask;
 import com.example.a1v1.HelperClasses.WebRTCEngine;
+import com.example.a1v1.Interfaces.IDisplayVideoCallBack;
 import com.example.a1v1.Interfaces.NetworkCallback;
 import com.example.a1v1.Models.WebRTCModel;
 import com.example.a1v1.R;
@@ -23,6 +27,8 @@ import com.google.firebase.database.DatabaseReference;
 import org.jetbrains.annotations.NotNull;
 import org.webrtc.PeerConnection;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -39,6 +45,13 @@ public class MainActivity extends AppCompatActivity implements
     private static final String TAG = "MainActivity";
     LinearLayout btnLayout;
     Button btnCall, btn_end;
+    List<DtoStream> streamList = new ArrayList<>();
+    StreamsAdapter streamsAdapter = null;
+    RecyclerView recyclerView_Streams;
+    HashMap<String, Boolean> streamHashMap = new HashMap<>();
+    LinearLayout layout_controls;
+    ImageView mic, swap;
+
 
     private PeerConnection.IceServer.Builder iceServerBuilder;
     private final List<PeerConnection.IceServer> iceServers = new LinkedList<>();
@@ -62,8 +75,16 @@ public class MainActivity extends AppCompatActivity implements
 
         initComponents();
         initListeners();
+        initStreamsAdapterGrid();
 
         initPeerConnection(iceServers);
+    }
+
+    private void initStreamsAdapterGrid() {
+        streamsAdapter = new StreamsAdapter(getApplicationContext(), MainActivity.this, streamList);
+        LinearLayoutManager linearLayoutManager = new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false);
+        recyclerView_Streams.setLayoutManager(linearLayoutManager);
+        recyclerView_Streams.setAdapter(streamsAdapter);
     }
 
     private void initPeerConnection(List<PeerConnection.IceServer> iceServers) {
@@ -73,6 +94,8 @@ public class MainActivity extends AppCompatActivity implements
 
         webRTCEngine.initWebRTCFactory();
 
+        webRTCEngine.setDisplayVideoCallback(iDisplayVideoCallBack);
+
         methodRequiresCameraAndMicPermissions();
     }
 
@@ -80,6 +103,8 @@ public class MainActivity extends AppCompatActivity implements
         btnCall.setOnClickListener(this);
         btnLayout.setOnClickListener(this);
         btn_end.setOnClickListener(this);
+        mic.setOnClickListener(this);
+        swap.setOnClickListener(this);
 
     }
 
@@ -89,6 +114,12 @@ public class MainActivity extends AppCompatActivity implements
         btnLayout = findViewById(R.id.btn_layout);
         btnCall = findViewById(R.id.btn_call);
         btn_end = findViewById(R.id.btn_end);
+
+        mic = findViewById(R.id.imgView_Mic);
+        swap = findViewById(R.id.imgView_CameraSwitch);
+
+        layout_controls = findViewById(R.id.layout_controls);
+        recyclerView_Streams = findViewById(R.id.recyclerView_Streams);
 
     }
 
@@ -105,7 +136,22 @@ public class MainActivity extends AppCompatActivity implements
             case R.id.btn_end:
                 endCall();
                 break;
+            case R.id.imgView_CameraSwitch:
+                switchCamera();
+                break;
+            case R.id.imgView_Mic:
+                toggleMic();
+                break;
         }
+    }
+
+    private void toggleMic() {
+        WebRTCEngine.getInstance(this, getApplicationContext(), null).toggleMic();
+    }
+
+    private void switchCamera() {
+        WebRTCEngine.getInstance(this, getApplicationContext(), null)
+                .toggleCamera();
     }
 
     private void endCall() {
@@ -130,10 +176,7 @@ public class MainActivity extends AppCompatActivity implements
     private void switchUI(boolean b) {
         if (b) {
             btnCall.setVisibility(View.GONE);
-            btn_end.setVisibility(View.VISIBLE);
-        } else {
-            btnCall.setVisibility(View.VISIBLE);
-            btn_end.setVisibility(View.GONE);
+            layout_controls.setVisibility(View.VISIBLE);
         }
     }
 
@@ -203,4 +246,19 @@ public class MainActivity extends AppCompatActivity implements
         }
     }
 
+
+    IDisplayVideoCallBack iDisplayVideoCallBack = new IDisplayVideoCallBack() {
+        @Override
+        public void setDisplayVideo(boolean isLocalVideo, String deviceId, View view) {
+            handleStreamHashMap(deviceId, view);
+        }
+    };
+
+    private void handleStreamHashMap(String deviceId, View view) {
+        if (!streamHashMap.containsKey(deviceId)) {
+            streamHashMap.put(deviceId, true);
+            DtoStream dtoStream = new DtoStream(deviceId, view);
+            streamsAdapter.addStreamToAdapter(dtoStream);
+        }
+    }
 }

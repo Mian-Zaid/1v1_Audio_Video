@@ -6,6 +6,15 @@
     android:layout_height="match_parent"
     tools:context=".Activities.MainActivity">
 
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerView_Streams"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="32dp"
+        android:visibility="visible" />
+
+
     <LinearLayout
         android:id="@+id/btn_layout"
         android:layout_width="match_parent"
@@ -24,7 +33,6 @@
             android:textAllCaps="false" />
 
         <Button
-            android:visibility="gone"
             android:id="@+id/btn_end"
             android:layout_width="200dp"
             android:layout_height="wrap_content"
@@ -32,10 +40,39 @@
             android:layout_marginVertical="10dp"
             android:backgroundTint="@color/red"
             android:text="End"
-            android:textAllCaps="false" />
+            android:textAllCaps="false"
+            android:visibility="gone" />
 
 
     </LinearLayout>
 
+    <LinearLayout
+        android:id="@+id/layout_controls"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginHorizontal="20dp"
+        android:layout_marginBottom="32dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/imgView_Mic"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_gravity="center_vertical"
+            android:layout_marginRight="16dp"
+            android:visibility="visible"
+            app:srcCompat="@drawable/voice" />
+
+        <ImageView
+            android:id="@+id/imgView_CameraSwitch"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_gravity="center_vertical"
+            android:layout_marginLeft="16dp"
+            android:visibility="visible"
+            app:srcCompat="@drawable/swap" />
+    </LinearLayout>
 
 </RelativeLayout>
